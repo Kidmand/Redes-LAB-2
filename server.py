@@ -6,9 +6,10 @@
 # Copyright 2008-2010 Natalia Bidart y Daniel Moisset
 # $Id: server.py 656 2013-03-18 23:49:11Z bc $
 
+import sys
 import optparse
 import socket
-import connection
+import connection as c
 from constants import *
 
 
@@ -21,18 +22,40 @@ class Server(object):
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT,
                  directory=DEFAULT_DIR):
         print("Serving %s on %s:%s." % (directory, addr, port))
-        # FALTA: Crear socket del servidor, configurarlo, asignarlo
-        # a una dirección y puerto, etc.
+        # NOTE: Crear socket del servidor, configurarlo, asignarlo a una dirección y puerto, etc.
+        # 1. Iniciamos variables globales
+        self.addr = addr
+        self.port = port
+        self.directory = directory
+        # 2. Creamos socket IPv4 TCP
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 3. Asociamos el socket a la direccion y puerto especificado
+        server_address = (addr, port)
+        self.s.bind(server_address)
+        # 4. Ponemos al socket en modo servidor escuchando conexiones entrantes
+        # TODO: Por ahora el socket solo aceptará una conexión en cola.
+        self.s.listen(1)
 
     def serve(self):
         """
         Loop principal del servidor. Se acepta una conexión a la vez
         y se espera a que concluya antes de seguir.
         """
-        while True:
-            pass
-            # FALTA: Aceptar una conexión al server, crear una
-            # Connection para la conexión y atenderla hasta que termine.
+        try:
+            while True:
+                sys.stderr.write(
+                    'Esperando conexion...\n')
+                client_connection, client_address = self.s.accept()
+                connect = c.Connection(client_connection, self.directory)
+                connect.handle()
+        except:
+            sys.stderr.write(
+                '{} {} \n'.format(INTERNAL_ERROR, error_messages[INTERNAL_ERROR]))
+            sys.exit(1)
+        finally:
+            sys.stderr.write(
+                'Closing server... \n')
+            self.s.close()
 
 
 def main():
