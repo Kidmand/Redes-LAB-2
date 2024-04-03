@@ -1,0 +1,4 @@
+constants.py
+*.docx*
+*.venv
+__pycache__/
