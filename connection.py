@@ -29,22 +29,22 @@ class Connection(object):
         try:
             local_address = self.socket.getsockname()
 
-            sys.stderr.write('Conected by: %s \n' % str(local_address))
+            sys.stdout.write('Conected by: %s \n' % str(local_address))
 
             # Recibe los datos en trozos y atiende los eventos
             while self.connected:
                 data = self.socket.recv(19)
-                sys.stderr.write('recibido "%s" \n' % data)
+                sys.stdout.write('recibido "%s" \n' % data)
                 if data:
                     self._satisfacer_pedido(data)
                 else:
-                    sys.stderr.write('No hay mas datos.\n')
+                    sys.stdout.write('No hay mas datos.\n')
                     break
         except ValueError as e:
             mensaje = '{} {} \n'.format(*e.args)
             self.socket.sendall(mensaje.encode())
         finally:
-            sys.stderr.write(
+            sys.stdout.write(
                 'Closing connection... \n')
             self.socket.close()
 

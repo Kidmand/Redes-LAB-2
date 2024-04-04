@@ -21,7 +21,7 @@ class Server(object):
 
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT,
                  directory=DEFAULT_DIR):
-        print("Serving %s on %s:%s." % (directory, addr, port))
+        sys.stdout.write("Serving %s on %s:%s.\n" % (directory, addr, port))
         # NOTE: Crear socket del servidor, configurarlo, asignarlo a una dirección y puerto, etc.
         # 1. Iniciamos variables globales
         self.addr = addr
@@ -43,17 +43,16 @@ class Server(object):
         """
         try:
             while True:
-                sys.stderr.write(
+                sys.stdout.write(
                     'Esperando conexion...\n')
                 client_connection, client_address = self.s.accept()
                 connect = c.Connection(client_connection, self.directory)
                 connect.handle()
         except ValueError as e:
-            sys.stderr.write(
-                '{} {} {}\n'.format(INTERNAL_ERROR, error_messages[INTERNAL_ERROR], e))
+            sys.stderr.write('{}\n'.format(e))
             sys.exit(1)
         finally:
-            sys.stderr.write(
+            sys.stdout.write(
                 'Closing server... \n')
             self.s.close()
 
