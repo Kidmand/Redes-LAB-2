@@ -55,17 +55,16 @@ class Connection(object):
         pedido = data.replace(b"\r\n", b"").decode()
         match pedido:
             case "get_slice":
-                self._get_slice(data)
+                self._get_slice()
             case "get_metadata":
-                self._get_metadata(data)
-            case "put_slice":
-                self._put_slice(data)
-            case "put_metadata":
-                self._put_metadata(data)
+                self._get_metadata()
+            case "get_file_listing":
+                self._get_file_listing()
             case "quit":
                 self._quit()
             case _:
-                raise  ValueError(INVALID_COMMAND, error_messages[INVALID_COMMAND])
+                raise ValueError(
+                    INVALID_COMMAND, error_messages[INVALID_COMMAND])
 
     def _quit(self):
         """
@@ -116,3 +115,9 @@ class Connection(object):
            \r\n
         """
         pass
+
+
+"""
+python3 server.py
+telnet 0.0.0.0 19500
+"""
