@@ -48,9 +48,9 @@ class Server(object):
                 client_connection, client_address = self.s.accept()
                 connect = c.Connection(client_connection, self.directory)
                 connect.handle()
-        except:
+        except ValueError as e:
             sys.stderr.write(
-                '{} {} \n'.format(INTERNAL_ERROR, error_messages[INTERNAL_ERROR]))
+                '{} {} {}\n'.format(INTERNAL_ERROR, error_messages[INTERNAL_ERROR], e))
             sys.exit(1)
         finally:
             sys.stderr.write(
