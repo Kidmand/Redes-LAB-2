@@ -52,8 +52,7 @@ class Connection(object):
         # FIXME: CREO QUE TODOS LOS ERRORES SUGUEN DE ESTE WHILE.
         while EOL not in buffer and self.connected:
             try:
-                data = self.socket.recv(TAM_COMAND).decode("ascii")
-                buffer += data
+                buffer += self.socket.recv(TAM_COMAND).decode("ascii")
             except UnicodeError:
                 self._create_message_and_send(BAD_REQUEST)
                 self.connected = False
