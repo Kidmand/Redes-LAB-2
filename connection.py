@@ -9,7 +9,7 @@ import os
 from constants import *
 from base64 import b64encode
 
-TAM_COMAND = 1024
+TAM_COMAND = 4096
 
 
 class Connection(object):
@@ -34,47 +34,51 @@ class Connection(object):
         try:
             while self.connected:
                 comand_text = self._receive_command()
-                comand = self._analyze_comand(comand_text)
-                if comand[0] != '':
-                    self._run_comand(comand[0], comand[1])
+
+                for c_text in comand_text:
+                    if self.connected:
+                        comand = self._analyze_comand(c_text)
+                        if comand[0] != '':
+                            self._run_comand(comand[0], comand[1])
+
         finally:
             sys.stdout.write(
                 'Closing connection...\n')
             self.socket.close()
 
-    def _recv(self, buffer):
-        try:
-            data = self.socket.recv(TAM_COMAND).decode("ascii")
-            buffer += data
-        except UnicodeError:
-            self._create_message_and_send(BAD_REQUEST)
-            self.connected = False
-        finally:
-            return buffer
-
     def _receive_command(self):
         buffer = ''
 
         while EOL not in buffer and self.connected:
-            buffer += self._recv(buffer)
+            try:
+                data = self.socket.recv(TAM_COMAND).decode("ascii")
+                buffer += data
+            except UnicodeError:
+                self._create_message_and_send(BAD_REQUEST)
+                self.connected = False
 
         if EOL not in buffer:
             self.connected = False
-            return ''
+            return []
         else:
-            return buffer
+            # Dividimos por si tenemos varios comandos.
+            buffer_split = buffer.split(EOL)
+            if buffer_split[-1] == '':
+                buffer_split.pop()
+            return buffer_split
 
     def _analyze_comand(self, command_text):
-        command_ = command_text.rstrip('\r\n')
 
-        sys.stdout.write(f'Request: {command_text}')
+        sys.stdout.write(f'Request: {command_text}\n')
 
-        if EOL not in command_text:
+        if EOL in command_text or '\n' in command_text:
             self._create_message_and_send(BAD_EOL)
+            self.connected = False
             return ('', [])
 
-        command_split = command_.split()
+        command_split = command_text.split()
         if len(command_split) == 0:
+            self._create_message_and_send(INVALID_COMMAND)
             return ('', [])
         else:
             comand = command_split[0]
@@ -203,7 +207,7 @@ class Connection(object):
         return '{} {} {}'.format(code, error_messages[code], EOL)
 
     def _send_message(self, message):
-        self.socket.sendall(message.encode())
+        self.socket.sendall(message.encode("ascii"))
 
     def _create_message_and_send(self, code):
         message = self._create_message(code)
