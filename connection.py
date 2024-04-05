@@ -33,14 +33,13 @@ class Connection(object):
         """
         try:
             while self.connected:
-                comand_text = self._receive_command()
-
-                for c_text in comand_text:
-                    if self.connected:
-                        comand = self._analyze_comand(c_text)
-                        if comand[0] != '':
-                            self._run_comand(comand[0], comand[1])
-
+                comands_text = self._receive_command()
+                if not self.connected:
+                    break
+                comands = self._analyze_comand(comands_text)
+                if not self.connected:
+                    break
+                self._run_comand(comands)
         finally:
             sys.stdout.write(
                 'Closing connection...\n')
@@ -49,7 +48,6 @@ class Connection(object):
     def _receive_command(self):
         buffer = ''
 
-        # FIXME: CREO QUE TODOS LOS ERRORES SUGUEN DE ESTE WHILE.
         while EOL not in buffer and self.connected:
             try:
                 buffer += self.socket.recv(TAM_COMAND).decode("ascii")
@@ -65,54 +63,77 @@ class Connection(object):
             buffer_split = buffer.split(EOL)
             if buffer_split[-1] == '':
                 buffer_split.pop()
+
             return buffer_split
 
-    def _analyze_comand(self, command_text):
+    def _analyze_comand(self, commands_text):
 
-        sys.stdout.write(f'Request: {command_text}\n')
+        # FIXME: MEJORAR EL FORMATO, ESTA IMPRIMIENDO LA LISTA.
+        sys.stdout.write(f'Request: {commands_text}\n')
 
-        if EOL in command_text or '\n' in command_text:
-            self._create_message_and_send(BAD_EOL)
-            self.connected = False
-            return ('', [])
+        comands = []
+        for comand in commands_text:
+            if EOL in comand or '\n' in comand:
+                self._create_message_and_send(BAD_EOL)
+                self.connected = False
+                break
+            command_split = comand.split()
+            if len(command_split) > 0:
+                comand = command_split[0]
+                arg = command_split[1:]
+                comands.append((comand, arg))
+            elif len(command_split) == 0:
+                comands.append(("", []))
 
-        command_split = command_text.split()
-        if len(command_split) == 0:
-            self._create_message_and_send(INVALID_COMMAND)
-            return ('', [])
-        else:
-            comand = command_split[0]
-            arg = command_split[1:]
+        return comands
 
-            return (comand, arg)
-
-    def _run_comand(self, comand, arg):
+    def _run_comand(self, comands):
         """
         Redirecciona al metodo que se encarga de satisfacer el comando con sus argumentos.
         """
-        match comand:
-            case "get_slice":
+        message = self._create_message(CODE_OK)
+        for (comand, arg) in comands:
+            if comand == "get_slice":
                 if len(arg) == 3:
-                    self._get_slice(*arg)
-                    return
-            case "get_metadata":
+                    (res_code, res_message) = self._get_slice(*arg)
+                    if (res_code == CODE_OK):
+                        message += res_message
+                    else:
+                        message = self._create_message(res_code)
+                        break
+                else:
+                    message = self._create_message(INVALID_ARGUMENTS)
+                    break
+            elif comand == "get_metadata":
                 if len(arg) == 1:
-                    self._get_metadata(*arg)
-                    return
-            case "get_file_listing":
+                    (res_code, res_message) = self._get_metadata(*arg)
+                    if (res_code == CODE_OK):
+                        message += res_message
+                    else:
+                        message = self._create_message(res_code)
+                        break
+                else:
+                    message = self._create_message(INVALID_ARGUMENTS)
+                    break
+            elif comand == "get_file_listing":
                 if len(arg) == 0:
-                    self._get_file_listing()
-                    return
-            case "quit":
+                    (res_code, res_message) = self._get_file_listing()
+                    message += res_message
+                else:
+                    message = self._create_message(INVALID_ARGUMENTS)
+                    break
+            elif comand == "quit":
                 if len(arg) == 0:
                     self._quit()
-                    return
-            case _:
-                self._create_message_and_send(INVALID_COMMAND)
-                return
+                    break  # Si hacemos quit no seguimos ejecutando comandos.
+                else:
+                    message = self._create_message(INVALID_ARGUMENTS)
+                    break
+            else:
+                message = self._create_message(INVALID_COMMAND)
+                break
 
-        # Esto se ejecuta solo si el match entra a algun caso y no entra al if.
-        self._create_message_and_send(INVALID_ARGUMENTS)
+        self._send_message(message)
 
     def _get_file_listing(self):
         """
@@ -128,13 +149,13 @@ class Connection(object):
                    \r\n
         """
         files_in_directory = os.listdir(self.directory)
-        message = self._create_message(CODE_OK)
 
+        message = ""
         for file in files_in_directory:
             message += file + EOL
 
         message += EOL
-        self._send_message(message)
+        return (CODE_OK, message)
 
     def _get_metadata(self, filename):
         """
@@ -150,11 +171,9 @@ class Connection(object):
 
         if os.path.isfile(file_path):
             file_size = str(os.path.getsize(file_path))
-            message = self._create_message(CODE_OK)
-            message += file_size + EOL
-            self._send_message(message)
+            return (CODE_OK, file_size + EOL)
         else:
-            message = self._create_message_and_send(FILE_NOT_FOUND)
+            return (FILE_NOT_FOUND, "")
 
     def _get_slice(self, filename, offset, size):
         """
@@ -174,33 +193,29 @@ class Connection(object):
             offset = int(offset)
             size = int(size)
         except ValueError:
-            self._create_message_and_send(INVALID_ARGUMENTS)
-            return
+            return (INVALID_ARGUMENTS, "")
+
+        if not os.path.isfile(file_path):
+            return (FILE_NOT_FOUND, "")
 
         file_size = os.path.getsize(file_path)
         if offset < 0 or size < 0:
-            message = self._create_message_and_send(INVALID_ARGUMENTS)
+            return (INVALID_ARGUMENTS, "")
         elif offset + size > file_size:
-            message = self._create_message_and_send(BAD_OFFSET)
-        elif os.path.isfile(file_path):
-
+            return (BAD_OFFSET, "")
+        else:
             with open(file_path, 'rb') as file:
                 file.seek(offset)
                 slice = file.read(size)
 
             encoded_slice = b64encode(slice).decode('ascii')
-            message = self._create_message(CODE_OK)
-            message += encoded_slice + EOL
-            self._send_message(message)
-        else:
-            message = self._create_message_and_send(FILE_NOT_FOUND)
+            message = encoded_slice + EOL
+            return (CODE_OK, message)
 
     def _quit(self):
         """
         Termina la conexión.
-        El servidor responde con un resultado exitoso (0 OK) y cierra la conexion.
         """
-        self._create_message_and_send(CODE_OK)
         self.connected = False
 
     def _create_message(self, code):
