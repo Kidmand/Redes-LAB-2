@@ -24,53 +24,69 @@ class Connection(object):
         self.directory = directory
         self.connected = True
 
+        local_address = self.socket.getsockname()
+        sys.stdout.write('Conected by: %s \n' % str(local_address))
+
     def handle(self):
         """
         Atiende eventos de la conexión hasta que termina.
         """
         try:
-            local_address = self.socket.getsockname()
-
-            sys.stdout.write('Conected by: %s \n' % str(local_address))
-
-            # Recibe los datos en trozos y atiende los eventos
             while self.connected:
-                # FIXME: REVISAR EL TAMAÑO DEL COMANDO.
-                data = self.socket.recv(TAM_COMAND)
-                if data:
-                    self._satisfacer_pedido(data)
-                else:  # FIXME: ¿ EN QUE CASO ENTRA ACA ?
-                    sys.stdout.write('No hay mas datos.\n')
-                    break
-        except ValueError as e:
-            mensaje = '{} {} \n'.format(*e.args)
-            self.socket.sendall(mensaje.encode())
+                comand_text = self._receive_command()
+                comand = self._analyze_comand(comand_text)
+                if comand[0] != '':
+                    self._run_comand(comand[0], comand[1])
         finally:
             sys.stdout.write(
                 'Closing connection...\n')
             self.socket.close()
 
-    def _satisfacer_pedido(self, data):
-        """
-        Determina el pedido que contiene el parametro DATA y redirecciona al metodo que se encarga de satisfacerlo.
-        """
-        pedido = data.decode().rstrip('\r\n')
+    def _recv(self, buffer):
+        try:
+            data = self.socket.recv(TAM_COMAND).decode("ascii")
+            buffer += data
+        except UnicodeError:
+            self._create_message_and_send(BAD_REQUEST)
+            self.connected = False
+        finally:
+            return buffer
 
-        sys.stdout.write('Request: {}\n'.format(pedido))
+    def _receive_command(self):
+        buffer = ''
 
-        if not data.endswith(b'\r\n'):
+        while EOL not in buffer and self.connected:
+            buffer += self._recv(buffer)
+
+        if EOL not in buffer:
+            self.connected = False
+            return ''
+        else:
+            return buffer
+
+    def _analyze_comand(self, command_text):
+        command_ = command_text.rstrip('\r\n')
+
+        sys.stdout.write(f'Request: {command_text}')
+
+        if EOL not in command_text:
             self._create_message_and_send(BAD_EOL)
-            return
+            return ('', [])
 
-        pedido = pedido.split()
+        command_split = command_.split()
+        if len(command_split) == 0:
+            return ('', [])
+        else:
+            comand = command_split[0]
+            arg = command_split[1:]
 
-        if len(pedido) == 0:
-            self._create_message_and_send(INVALID_COMMAND)
+            return (comand, arg)
 
-        comando = pedido[0]
-        arg = pedido[1:]
-
-        match comando:
+    def _run_comand(self, comand, arg):
+        """
+        Redirecciona al metodo que se encarga de satisfacer el comando con sus argumentos.
+        """
+        match comand:
             case "get_slice":
                 if len(arg) == 3:
                     self._get_slice(*arg)
@@ -168,7 +184,7 @@ class Connection(object):
                 file.seek(offset)
                 slice = file.read(size)
 
-            encoded_slice = b64encode(slice).decode()
+            encoded_slice = b64encode(slice).decode('ascii')
             message = self._create_message(CODE_OK)
             message += encoded_slice + EOL
             self._send_message(message)

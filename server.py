@@ -6,9 +6,10 @@
 # Copyright 2008-2010 Natalia Bidart y Daniel Moisset
 # $Id: server.py 656 2013-03-18 23:49:11Z bc $
 
+import os
 import sys
-import optparse
 import socket
+import optparse
 import connection as c
 from constants import *
 
@@ -21,31 +22,35 @@ class Server(object):
 
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT,
                  directory=DEFAULT_DIR):
+
         sys.stdout.write("Serving %s on %s:%s.\n" % (directory, addr, port))
-        # DOC: Crear socket del servidor, configurarlo, asignarlo a una dirección y puerto, etc.
+
+        # 0. Revisamos si existe el directorio sino lo creamos.
+        if not os.path.isdir(directory):
+            os.mkdir(directory)
 
         # 1. Iniciamos variables globales
         self.addr = addr
         self.port = port
         self.directory = directory
+
         # 2. Creamos socket IPv4 TCP
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # 3. Asociamos el socket a la direccion y puerto especificado
-        server_address = (addr, port)
-        self.s.bind(server_address)
+        self.s.bind((addr, port))
+
         # 4. Ponemos al socket en modo servidor escuchando conexiones entrantes
         # TODO: Por ahora el socket solo aceptará una conexión en cola.
-        self.s.listen(1)
+        self.s.listen()
 
     def serve(self):
         """
         Loop principal del servidor. Se acepta una conexión a la vez
         y se espera a que concluya antes de seguir.
         """
+
         try:
             while True:
-                sys.stdout.write(
-                    'Esperando conexion...\n')
                 client_connection, client_address = self.s.accept()
                 connect = c.Connection(client_connection, self.directory)
                 connect.handle()
