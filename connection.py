@@ -20,7 +20,6 @@ class Connection(object):
     """
 
     def __init__(self, socket, directory):
-        # NOTE: Inicializar atributos de Connection
         self.socket = socket
         self.directory = directory
         self.connected = True

@@ -22,7 +22,8 @@ class Server(object):
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT,
                  directory=DEFAULT_DIR):
         sys.stdout.write("Serving %s on %s:%s.\n" % (directory, addr, port))
-        # NOTE: Crear socket del servidor, configurarlo, asignarlo a una dirección y puerto, etc.
+        # DOC: Crear socket del servidor, configurarlo, asignarlo a una dirección y puerto, etc.
+
         # 1. Iniciamos variables globales
         self.addr = addr
         self.port = port
