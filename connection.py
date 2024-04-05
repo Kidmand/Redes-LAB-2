@@ -47,10 +47,12 @@ class Connection(object):
 
     def _receive_command(self):
         buffer = ''
-
         while EOL not in buffer and self.connected:
             try:
                 buffer += self.socket.recv(TAM_COMAND).decode("ascii")
+
+                if buffer == "":
+                    break
             except UnicodeError:
                 self._create_message_and_send(BAD_REQUEST)
                 self.connected = False
