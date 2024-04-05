@@ -37,11 +37,9 @@ class Connection(object):
             while self.connected:
                 # FIXME: REVISAR EL TAMAÑO DEL COMANDO.
                 data = self.socket.recv(TAM_COMAND)
-                sys.stdout.write('recibido "%s" \n' % data)
-
                 if data:
                     self._satisfacer_pedido(data)
-                else:
+                else:  # FIXME: ¿ EN QUE CASO ENTRA ACA ?
                     sys.stdout.write('No hay mas datos.\n')
                     break
         except ValueError as e:
@@ -49,7 +47,7 @@ class Connection(object):
             self.socket.sendall(mensaje.encode())
         finally:
             sys.stdout.write(
-                'Closing connection... \n')
+                'Closing connection...\n')
             self.socket.close()
 
     def _satisfacer_pedido(self, data):
@@ -57,6 +55,9 @@ class Connection(object):
         Determina el pedido que contiene el parametro DATA y redirecciona al metodo que se encarga de satisfacerlo.
         """
         pedido = data.replace(b"\r\n", b"").decode()
+
+        sys.stdout.write('Request: {}\n'.format(pedido))
+
         pedido = pedido.split()
         if len(pedido) == 0:
             comando = ""
