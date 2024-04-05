@@ -26,11 +26,8 @@ BAD_OFFSET = 203
 error_messages = {
     CODE_OK: "OK",
     # 1xx: Errores fatales (no se pueden atender más pedidos)
-    #                                       FIXME: REVISAR CUANDO USAR ESTE CODIGO DE ERROR.
     BAD_EOL: "BAD EOL",
-    #                                       FIXME: REVISAR CUANDO USAR ESTE CODIGO DE ERROR.
     BAD_REQUEST: "BAD REQUEST",
-    #                                       FIXME: REVISAR CUANDO USAR ESTE CODIGO DE ERROR.
     INTERNAL_ERROR: "INTERNAL SERVER ERROR",
     # 2xx: Errores no fatales (no se pudo atender este pedido)
     INVALID_COMMAND: "NO SUCH COMMAND",
