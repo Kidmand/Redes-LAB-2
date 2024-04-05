@@ -49,6 +49,7 @@ class Connection(object):
     def _receive_command(self):
         buffer = ''
 
+        # FIXME: CREO QUE TODOS LOS ERRORES SUGUEN DE ESTE WHILE.
         while EOL not in buffer and self.connected:
             try:
                 data = self.socket.recv(TAM_COMAND).decode("ascii")
