@@ -54,16 +54,21 @@ class Connection(object):
         """
         Determina el pedido que contiene el parametro DATA y redirecciona al metodo que se encarga de satisfacerlo.
         """
-        pedido = data.replace(b"\r\n", b"").decode()
+        pedido = data.decode().rstrip('\r\n')
 
         sys.stdout.write('Request: {}\n'.format(pedido))
 
+        if not data.endswith(b'\r\n'):
+            self._create_message_and_send(BAD_EOL)
+            return
+
         pedido = pedido.split()
+
         if len(pedido) == 0:
-            comando = ""
-        else:
-            comando = pedido[0]
-            arg = pedido[1:]
+            self._create_message_and_send(INVALID_COMMAND)
+
+        comando = pedido[0]
+        arg = pedido[1:]
 
         match comando:
             case "get_slice":
@@ -83,13 +88,11 @@ class Connection(object):
                     self._quit()
                     return
             case _:
-                message = self._create_message(INVALID_COMMAND)
-                self.socket.sendall(message.encode())
+                self._create_message_and_send(INVALID_COMMAND)
                 return
 
         # Esto se ejecuta solo si el match entra a algun caso y no entra al if.
-        message = self._create_message(INVALID_ARGUMENTS)
-        self.socket.sendall(message.encode())
+        self._create_message_and_send(INVALID_ARGUMENTS)
 
     def _get_file_listing(self):
         """
@@ -111,7 +114,7 @@ class Connection(object):
             message += file + EOL
 
         message += EOL
-        self.socket.sendall(message.encode())
+        self._send_message(message)
 
     def _get_metadata(self, filename):
         """
@@ -129,10 +132,9 @@ class Connection(object):
             file_size = str(os.path.getsize(file_path))
             message = self._create_message(CODE_OK)
             message += file_size + EOL
+            self._send_message(message)
         else:
-            message = self._create_message(FILE_NOT_FOUND)
-
-        self.socket.sendall(message.encode())
+            message = self._create_message_and_send(FILE_NOT_FOUND)
 
     def _get_slice(self, filename, offset, size):
         """
@@ -147,15 +149,21 @@ class Connection(object):
                    Y2Fsb3IgcXVlIGhhY2UgaG95LCA=\r\n2
         """
         file_path = os.path.join(self.directory, str(filename))
-        offset = int(offset)
-        size = int(size)
+
+        try:
+            offset = int(offset)
+            size = int(size)
+        except ValueError:
+            self._create_message_and_send(INVALID_ARGUMENTS)
+            return
 
         file_size = os.path.getsize(file_path)
         if offset < 0 or size < 0:
-            message = self._create_message(INVALID_ARGUMENTS)
+            message = self._create_message_and_send(INVALID_ARGUMENTS)
         elif offset + size > file_size:
-            message = self._create_message(BAD_OFFSET)
+            message = self._create_message_and_send(BAD_OFFSET)
         elif os.path.isfile(file_path):
+
             with open(file_path, 'rb') as file:
                 file.seek(offset)
                 slice = file.read(size)
@@ -163,22 +171,27 @@ class Connection(object):
             encoded_slice = b64encode(slice).decode()
             message = self._create_message(CODE_OK)
             message += encoded_slice + EOL
+            self._send_message(message)
         else:
-            message = self._create_message(FILE_NOT_FOUND)
-
-        self.socket.sendall(message.encode())
+            message = self._create_message_and_send(FILE_NOT_FOUND)
 
     def _quit(self):
         """
         Termina la conexión.
         El servidor responde con un resultado exitoso (0 OK) y cierra la conexion.
         """
-        mensaje = self._create_message(CODE_OK)
-        self.socket.sendall(mensaje.encode())
+        self._create_message_and_send(CODE_OK)
         self.connected = False
 
     def _create_message(self, code):
         return '{} {} {}'.format(code, error_messages[code], EOL)
+
+    def _send_message(self, message):
+        self.socket.sendall(message.encode())
+
+    def _create_message_and_send(self, code):
+        message = self._create_message(code)
+        self._send_message(message)
 
 
 """
