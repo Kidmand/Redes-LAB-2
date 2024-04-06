@@ -37,7 +37,7 @@ class Server(object):
 
         # 2. Creamos socket IPv4 TCP
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # 3. Asociamos el socket a la direccion y puerto especificado
+        # 3. Asociamos el socket a la dirección y puerto especificado
         self.s.bind((addr, port))
 
         # 4. Ponemos al socket en modo servidor escuchando conexiones entrantes.

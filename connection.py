@@ -66,27 +66,27 @@ class Connection(object):
         - Una lista de cadenas de texto que representan los comandos separados por `EOL`.
 
         Ejemplo:
-        - Si el cliente envia `"comando1 arg1 arg2\r\ncomando2 arg1 arg2\r\n"`, el
+        - Si el cliente envía `"comando1 arg1 arg2\r\ncomando2 arg1 arg2\r\n"`, el
         output es `["comando1 arg1 arg2", "comando2 arg1 arg2", ...]`.
         """
 
         buffer = ""
 
-        # Guardamos los comandos en buffer hasta que encontramos un EOL o se corto la conexion.
+        # Guardamos los comandos en buffer hasta que encontramos un EOL o se corto la conexión.
         while EOL not in buffer and self.connected:
             try:
 
                 data = self.socket.recv(TAM_COMAND).decode("ascii")
                 buffer += data
 
-                # Obs: recv() retorna "" si se corta la conexion desde el cliente.
+                # Obs: recv() retorna "" si se corta la conexión desde el cliente.
                 if data == "":
                     break
             except UnicodeError:
                 self._create_message_and_send(BAD_REQUEST)
                 self.connected = False
 
-        # Si NO encontramos un EOL en el buffer, cortamos la conexion.
+        # Si NO encontramos un EOL en el buffer, cortamos la conexión.
         if EOL not in buffer:
             self.connected = False
             return []
@@ -94,7 +94,7 @@ class Connection(object):
             buffer_split = buffer.split(EOL)
 
             if buffer_split[-1] == "":
-                # Removemos el ultimo porque simpre hay un EOL al final
+                # Removemos el ultimo porque siempre hay un EOL al final
                 # y split() nos devuelve "" al ultimo.
                 buffer_split.pop()
 
@@ -139,7 +139,7 @@ class Connection(object):
 
     def _run_comand(self, comands):
         """
-        Redirecciona al metodo que se encarga de satisfacer el comando y 
+        Redirecciona al método que se encarga de satisfacer el comando y 
         revisa que se pase la cantidad correcta de argumentos.
 
         Input:
@@ -148,7 +148,7 @@ class Connection(object):
         Ejemplo:
         - Input: `[("comando1", ["arg1", "arg2"]), ("comando2", ["arg1", "arg2"]), ...]`
         """
-        # Seteamos el mensaje de respuesta con el codigo de respuesta OK.
+        # Seteamos el mensaje de respuesta con el código de respuesta OK.
         message = self._create_message(CODE_OK)
 
         # Recorrer los comandos
@@ -166,7 +166,7 @@ class Connection(object):
                         # Agregamos la respuesta al mensaje.
                         message += res_message
                     else:
-                        # Si hay un error, seteamos el mensaje con el codigo de error.
+                        # Si hay un error, seteamos el mensaje con el código de error.
                         message = self._create_message(res_code)
                         break
                 else:
