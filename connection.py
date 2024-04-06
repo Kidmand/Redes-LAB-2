@@ -4,7 +4,6 @@
 # $Id: connection.py 455 2011-05-01 00:32:09Z carlos $
 
 import sys
-import socket
 import os
 from constants import *
 from base64 import b64encode
@@ -148,8 +147,6 @@ class Connection(object):
         Ejemplo:
         - Input: `[("comando1", ["arg1", "arg2"]), ("comando2", ["arg1", "arg2"]), ...]`
         """
-        # Seteamos el mensaje de respuesta con el código de respuesta OK.
-        message = self._create_message(CODE_OK)
 
         # Recorrer los comandos
         for (comand, arg) in comands:
@@ -158,28 +155,19 @@ class Connection(object):
                 (num_args, func) = self.COMMAND_HANDLERS[comand]
                 if len(arg) == num_args:
                     # Ejecutamos el comando.
-                    (res_code, res_message) = func(*arg)
+                    func(*arg)
+
+                    # Si hacemos quit no seguimos ejecutando comandos.
                     if comand == "quit":
-                        # Si hacemos quit no seguimos ejecutando comandos.
-                        break
-                    elif res_code == CODE_OK:
-                        # Agregamos la respuesta al mensaje.
-                        message += res_message
-                    else:
-                        # Si hay un error, seteamos el mensaje con el código de error.
-                        message = self._create_message(res_code)
                         break
                 else:
                     # Si la cantidad de argumentos no es la correcta.
-                    message = self._create_message(INVALID_ARGUMENTS)
+                    self._create_message_and_send(INVALID_ARGUMENTS)
                     break
             else:
                 # Si el comando no está definido.
-                message = self._create_message(INVALID_COMMAND)
+                self._create_message_and_send(INVALID_COMMAND)
                 break
-
-        # Enviamos la respuesta al cliente.
-        self._send_message(message)
 
     def _get_file_listing(self):
         """
@@ -201,12 +189,13 @@ class Connection(object):
             files_in_directory = []
 
         # Creamos el mensaje de respuesta.
-        message = ""
+        message = self._create_message(CODE_OK)
         for file in files_in_directory:
             message += file + EOL
         message += EOL
 
-        return (CODE_OK, message)
+        # Enviamos el mensaje al cliente.
+        self._send_message(message)
 
     def _get_metadata(self, filename):
         """
@@ -221,12 +210,16 @@ class Connection(object):
         # Buscamos el archivo en el directorio.
         file_path = os.path.join(self.directory, filename)
 
+        message = self._create_message(CODE_OK)
         # Si el archivo existe, devolvemos su tamaño.
         if os.path.isfile(file_path):
             file_size = str(os.path.getsize(file_path))
-            return (CODE_OK, file_size + EOL)
+            message += file_size + EOL
         else:  # Sino, devolvemos un error.
-            return (FILE_NOT_FOUND, "")
+            message = self._create_message(FILE_NOT_FOUND)
+
+        # Enviamos el mensaje al cliente.
+        self._send_message(message)
 
     def _get_slice(self, filename, offset, size):
         """
@@ -244,23 +237,28 @@ class Connection(object):
         file_path = os.path.join(self.directory, str(filename))
 
         # Verificamos que los argumentos sean enteros.
-        try:
-            offset = int(offset)
-            size = int(size)
-        except ValueError:
-            return (INVALID_ARGUMENTS, "")
+        if not offset.isdigit() or not size.isdigit():
+            self._create_message_and_send(INVALID_ARGUMENTS)
+            return
+
+        offset = int(offset)
+        size = int(size)
 
         # Verificamos que el archivo exista.
         if not os.path.isfile(file_path):
-            return (FILE_NOT_FOUND, "")
+            self._create_message_and_send(FILE_NOT_FOUND)
+            return
 
         # Verificamos que el offset y el size sean validos.
         file_size = os.path.getsize(file_path)
         if offset < 0 or size < 0:
-            return (INVALID_ARGUMENTS, "")
+            self._create_message_and_send(INVALID_ARGUMENTS)
+            return
         elif offset + size > file_size:
-            return (BAD_OFFSET, "")
+            self._create_message_and_send(BAD_OFFSET)
+            return
         else:
+            message = self._create_message(CODE_OK)
             # Leemos el archivo desde el offset hasta el size.
             with open(file_path, 'rb') as file:
                 file.seek(offset)
@@ -269,15 +267,19 @@ class Connection(object):
             # Codificamos el slice en base64.
             encoded_slice = b64encode(slice).decode('ascii')
 
-            message = encoded_slice + EOL
-            return (CODE_OK, message)
+            message += encoded_slice + EOL
+
+            # Enviamos el mensaje al cliente.
+            self._send_message(message)
 
     def _quit(self):
         """
         Termina la conexión.
         """
         self.connected = False
-        return (CODE_OK, "")
+
+        # Enviamos un mensaje de despedida.
+        self._create_message_and_send(CODE_OK)
 
     def _create_message(self, code):
         """
