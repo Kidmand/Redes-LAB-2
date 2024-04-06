@@ -10,6 +10,7 @@ import os
 import sys
 import socket
 import optparse
+import threading
 import connection as c
 from constants import *
 
@@ -39,9 +40,17 @@ class Server(object):
         # 3. Asociamos el socket a la direccion y puerto especificado
         self.s.bind((addr, port))
 
-        # 4. Ponemos al socket en modo servidor escuchando conexiones entrantes
-        # TODO: Por ahora el socket solo aceptará una conexión en cola.
+        # 4. Ponemos al socket en modo servidor escuchando conexiones entrantes.
         self.s.listen()
+
+    def _hande_connection(self, client_connection):
+        """
+        Maneja una conexión entrante.
+        """
+        # Creamos un objeto Connection para manejar la conexión
+        connect = c.Connection(client_connection, self.directory)
+        # Manejamos la conexión
+        connect.handle()
 
     def serve(self):
         """
@@ -53,10 +62,13 @@ class Server(object):
             while True:
                 # Aceptamos una conexión entrante
                 client_connection, client_address = self.s.accept()
-                # Creamos un objeto Connection para manejar la conexión
-                connect = c.Connection(client_connection, self.directory)
-                # Manejamos la conexión
-                connect.handle()
+
+                # FIXME: REVISAR QUE ESTO DE LOS HILOS ESTE BIEN??
+                # Creamos e iniciamos un thread para manejar la conexión.
+                cliente_thread = threading.Thread(
+                    target=self._hande_connection, args=(client_connection,))
+                cliente_thread.start()
+                # FIXME: -----------------------------------------
         except ValueError as e:
             sys.stderr.write('{}\n'.format(e))
             sys.exit(1)
