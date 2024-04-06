@@ -51,8 +51,11 @@ class Server(object):
 
         try:
             while True:
+                # Aceptamos una conexión entrante
                 client_connection, client_address = self.s.accept()
+                # Creamos un objeto Connection para manejar la conexión
                 connect = c.Connection(client_connection, self.directory)
+                # Manejamos la conexión
                 connect.handle()
         except ValueError as e:
             sys.stderr.write('{}\n'.format(e))
