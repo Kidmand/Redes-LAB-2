@@ -63,12 +63,10 @@ class Server(object):
                 # Aceptamos una conexión entrante
                 client_connection, client_address = self.s.accept()
 
-                # FIXME: REVISAR QUE ESTO DE LOS HILOS ESTE BIEN??
                 # Creamos e iniciamos un thread para manejar la conexión.
                 cliente_thread = threading.Thread(
                     target=self._hande_connection, args=(client_connection,))
-                cliente_thread.start()
-                # FIXME: -----------------------------------------
+                cliente_thread.start()                
         except ValueError as e:
             sys.stderr.write('{}\n'.format(e))
             sys.exit(1)
